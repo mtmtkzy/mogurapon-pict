@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>がぞうもぐらぽん(プロトタイプ)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#CDEFFF;
+    --sky-bottom:#F3FBEA;
+    --grass-far:#9FD1A0;
+    --grass-near:#7FC15C;
+    --dirt:#B98457;
+    --dirt-dark:#93683F;
+    --hole-dark:#3E2A18;
+    --panel:#FFFDF5;
+    --panel-border:#EADFC4;
+    --ink:#2E3A23;
+    --ink-soft:#5B6B4E;
+    --sun:#FFC93C;
+    --sun-deep:#F2A400;
+    --pop:#FF6F59;
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+    box-sizing:border-box;
+  }
+  *{box-sizing:inherit;}
+  html,body{
+    height:100%;
+    margin:0;
+    font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+    color:var(--ink);
+    background:var(--sky-top);
+  }
+  body{
+    display:flex;
+    flex-direction:column;
+    min-height:100%;
+    padding-top:var(--safe-top);
+    padding-bottom:var(--safe-bottom);
+    overflow-x:hidden;
+  }
+
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 18px;
+    flex-wrap:wrap;
+  }
+  h1{
+    margin:0;
+    font-size:clamp(20px,4.5vw,28px);
+    font-weight:800;
+    letter-spacing:.02em;
+  }
+  .hud{ display:flex; gap:10px; }
+  .hud-item{
+    background:var(--panel);
+    border:2px solid var(--panel-border);
+    border-radius:16px;
+    padding:8px 16px;
+    text-align:center;
+    min-width:78px;
+  }
+  .hud-item .label{ font-size:11px; color:var(--ink-soft); }
+  .hud-item .value{
+    font-size:22px;
+    font-weight:800;
+    font-variant-numeric:tabular-nums;
+    line-height:1.1;
+  }
+
+  .field-wrap{
+    position:relative;
+    flex:1;
+    min-height:360px;
+    margin:0 12px;
+    border-radius:28px;
+    overflow:hidden;
+    background:linear-gradient(180deg,var(--sky-top) 0%,var(--sky-bottom) 55%,var(--grass-far) 56%,var(--grass-near) 100%);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.4);
+  }
+  .cloud{ position:absolute; background:#fff; border-radius:50%; opacity:.9; }
+
+  .holes{
+    position:absolute;
+    inset:0;
+    display:grid;
+    align-items:end;
+    justify-items:center;
+    padding:16% 6% 8%;
+    row-gap:10%;
+    column-gap:2%;
+  }
+  .hole-slot{
+    position:relative;
+    width:100%;
+    max-width:150px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+  }
+  .hole-slot.back-row{ transform:scale(.8) translateY(4%); opacity:.94; }
+  .hole-slot.front-row{ transform:translateY(4%); }
+
+  .mound{
+    position:relative;
+    width:100%;
+    aspect-ratio:1.3/1;
+    background:none;
+    border:none;
+    padding:0;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mound-body{
+    position:absolute;
+    left:1%;
+    right:1%;
+    bottom:0;
+    height:58%;
+    border-radius:50%;
+    background:radial-gradient(ellipse at 50% 30%,var(--dirt) 0%,var(--dirt-dark) 82%);
+    box-shadow:0 6px 0 rgba(0,0,0,.08);
+    z-index:1;
+  }
+  .hole-window{
+    position:absolute;
+    left:20%;
+    right:20%;
+    bottom:26%;
+    height:100%;
+    overflow:hidden;
+    z-index:2;
+  }
+  .hole-dark{
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    height:34%;
+    background:radial-gradient(ellipse at 50% 40%,var(--hole-dark) 0%,#241708 100%);
+    border-radius:50%;
+    z-index:1;
+  }
+  .mound img.target{
+    position:absolute;
+    left:50%;
+    bottom:6%;
+    width:96%;
+    height:auto;
+    transform:translate(-50%,140%);
+    transition:transform .24s cubic-bezier(.34,1.56,.64,1);
+    pointer-events:none;
+    filter:drop-shadow(0 3px 3px rgba(0,0,0,.25));
+    z-index:2;
+  }
+  .mound.up img.target{ transform:translate(-50%,0%); }
+  .mound.hit img.target{
+    transform:translate(-50%,-32%) scale(1.15);
+    opacity:0;
+    transition:transform .28s ease-out,opacity .28s ease-out;
+  }
+  @media (prefers-reduced-motion:reduce){
+    .mound img.target,.mound.hit img.target{ transition:none; }
+  }
+  .plus1{
+    position:absolute;
+    top:6%;
+    left:50%;
+    transform:translateX(-50%);
+    font-weight:800;
+    font-size:15px;
+    color:var(--pop);
+    opacity:0;
+    pointer-events:none;
+    z-index:3;
+  }
+  .plus1.show{ animation:floatUp .6s ease-out forwards; }
+  @keyframes floatUp{
+    0%{opacity:1; transform:translate(-50%,0);}
+    100%{opacity:0; transform:translate(-50%,-26px);}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .plus1.show{ animation:none; opacity:1; }
+  }
+
+  .controls{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:14px;
+    padding:16px;
+    flex-wrap:wrap;
+  }
+  button{ font-family:inherit; }
+  .btn-main{
+    background:linear-gradient(180deg,var(--sun) 0%,var(--sun-deep) 100%);
+    border:none;
+    color:#4A3400;
+    font-weight:800;
+    font-size:18px;
+    padding:14px 34px;
+    border-radius:999px;
+    box-shadow:0 4px 0 #C98600;
+    cursor:pointer;
+  }
+  .btn-main:disabled{ opacity:.6; cursor:default; }
+  .btn-main:active:not(:disabled){ transform:translateY(2px); box-shadow:0 2px 0 #C98600; }
+  .btn-ghost{
+    background:var(--panel);
+    border:2px solid var(--panel-border);
+    color:var(--ink);
+    font-weight:700;
+    font-size:14px;
+    padding:11px 20px;
+    border-radius:999px;
+    cursor:pointer;
+  }
+  button:focus-visible{ outline:3px solid #2E7DD1; outline-offset:2px; }
+
+  .settings{
+    margin:0 12px 16px;
+    background:var(--panel);
+    border:2px solid var(--panel-border);
+    border-radius:20px;
+    padding:16px 18px;
+    display:none;
+  }
+  .settings.open{ display:block; }
+  .settings h2{ margin:0 0 10px; font-size:15px; font-weight:800; }
+  .row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:12px;
+  }
+  .row:last-child{ margin-bottom:0; }
+  .row .row-label{
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink-soft);
+    min-width:84px;
+  }
+  select{
+    font-family:inherit;
+    font-size:14px;
+    padding:8px 12px;
+    border-radius:10px;
+    border:2px solid var(--panel-border);
+    background:#fff;
+    color:var(--ink);
+  }
+  select:disabled{ opacity:.55; }
+  .thumbs{ display:flex; gap:8px; flex-wrap:wrap; }
+  .thumb{
+    position:relative;
+    width:52px;
+    height:52px;
+    border-radius:10px;
+    overflow:hidden;
+    border:2px solid var(--panel-border);
+    background:#fff;
+  }
+  .thumb img{ width:100%; height:100%; object-fit:contain; padding:4px; }
+  .thumb .rm{
+    position:absolute;
+    top:0;
+    right:0;
+    background:rgba(0,0,0,.55);
+    color:#fff;
+    border:none;
+    width:18px;
+    height:18px;
+    font-size:12px;
+    line-height:1;
+    cursor:pointer;
+  }
+  .file-label{
+    display:inline-block;
+    background:#fff;
+    border:2px dashed var(--panel-border);
+    border-radius:10px;
+    padding:8px 14px;
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .file-label input{ display:none; }
+
+  .result{
+    position:absolute;
+    inset:0;
+    background:rgba(46,58,35,.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:5;
+  }
+  .result.show{ display:flex; }
+  .result-card{
+    background:var(--panel);
+    border-radius:24px;
+    padding:32px 36px;
+    text-align:center;
+    max-width:86%;
+  }
+  .result-card .score-big{
+    font-size:52px;
+    font-weight:800;
+    color:var(--pop);
+    margin:8px 0 18px;
+    font-variant-numeric:tabular-nums;
+  }
+  .result-card p{ margin:0; color:var(--ink-soft); font-weight:700; }
+
+  /* ---------- camera modal ---------- */
+  .camera-modal{
+    position:fixed;
+    inset:0;
+    background:rgba(20,24,16,.78);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:20;
+    padding:calc(var(--safe-top) + 12px) 14px calc(var(--safe-bottom) + 12px);
+  }
+  .camera-modal.open{ display:flex; }
+  .camera-card{
+    background:var(--panel);
+    border-radius:22px;
+    padding:16px;
+    width:100%;
+    max-width:420px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+  }
+  .camera-card h3{
+    margin:0;
+    font-size:15px;
+    font-weight:800;
+    align-self:flex-start;
+  }
+  .camera-stage{
+    position:relative;
+    width:100%;
+    aspect-ratio:4/3;
+    background:#111;
+    border-radius:14px;
+    overflow:hidden;
+  }
+  .camera-stage video,
+  .camera-stage img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .camera-error{
+    margin:0;
+    font-size:13px;
+    font-weight:700;
+    color:#C0392B;
+    text-align:center;
+  }
+  .camera-btnrow{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>がぞうもぐらぽん</h1>
+  <div class="hud">
+    <div class="hud-item">
+      <div class="label">スコア</div>
+      <div class="value" id="scoreVal">0</div>
+    </div>
+    <div class="hud-item">
+      <div class="label">のこり</div>
+      <div class="value" id="timeVal">30</div>
+    </div>
+  </div>
+</header>
+
+<div class="field-wrap" id="fieldWrap">
+  <div class="cloud" style="width:70px;height:34px;top:8%;left:8%;"></div>
+  <div class="cloud" style="width:50px;height:26px;top:14%;left:62%;"></div>
+  <div class="cloud" style="width:60px;height:30px;top:6%;left:38%;"></div>
+
+  <div class="holes" id="holes"></div>
+
+  <div class="result" id="resultScreen">
+    <div class="result-card">
+      <p>けっか</p>
+      <div class="score-big" id="finalScore">0</div>
+      <button class="btn-main" id="retryBtn">もういちど</button>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn-main" id="startBtn">スタート</button>
+  <button class="btn-ghost" id="settingsBtn">せってい</button>
+</div>
+
+<div class="settings" id="settingsPanel">
+  <h2>むずかしさ・じかん・あなの数</h2>
+  <div class="row">
+    <span class="row-label">むずかしさ</span>
+    <select id="difficultySelect">
+      <option value="easy">やさしい</option>
+      <option value="normal" selected>ふつう</option>
+      <option value="hard">むずかしい</option>
+    </select>
+  </div>
+  <div class="row">
+    <span class="row-label">じかん</span>
+    <select id="durationSelect">
+      <option value="30" selected>30びょう</option>
+      <option value="60">60びょう</option>
+      <option value="90">90びょう</option>
+    </select>
+  </div>
+  <div class="row">
+    <span class="row-label">あなの数</span>
+    <select id="holeCountSelect">
+      <option value="4">4こ</option>
+      <option value="6" selected>6こ</option>
+      <option value="8">8こ</option>
+    </select>
+  </div>
+
+  <h2 style="margin-top:16px;">ターゲット画像</h2>
+  <div class="row">
+    <span class="row-label">いま使用中</span>
+    <div class="thumbs" id="thumbs"></div>
+  </div>
+  <div class="row">
+    <label class="file-label">
+      画像をえらぶ(複数可)
+      <input type="file" id="fileInput" accept="image/*" multiple>
+    </label>
+    <button class="btn-ghost" id="openCameraBtn" type="button">カメラでとる</button>
+    <button class="btn-ghost" id="resetImagesBtn">デフォルトにもどす</button>
+  </div>
+</div>
+
+<div class="camera-modal" id="cameraModal">
+  <div class="camera-card">
+    <h3>カメラでとる</h3>
+    <div class="camera-stage">
+      <video id="cameraVideo" autoplay playsinline muted></video>
+      <img id="cameraPreview" alt="" style="display:none;">
+    </div>
+    <p class="camera-error" id="cameraError" style="display:none;"></p>
+    <canvas id="cameraCanvas" style="display:none;"></canvas>
+
+    <div class="camera-btnrow" id="cameraLiveControls">
+      <button class="btn-ghost" id="cameraSwitchBtn" type="button">カメラ切り替え</button>
+      <button class="btn-main" id="cameraShutterBtn" type="button">シャッター</button>
+      <button class="btn-ghost" id="cameraCloseBtn" type="button">とじる</button>
+    </div>
+    <div class="camera-btnrow" id="cameraReviewControls" style="display:none;">
+      <button class="btn-ghost" id="cameraRetakeBtn" type="button">とりなおす</button>
+      <button class="btn-main" id="cameraUseBtn" type="button">これをつかう</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  function svgUri(svg){ return "data:image/svg+xml," + encodeURIComponent(svg); }
+
+  var DEFAULT_IMAGES = [
+    svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="58" r="34" fill="#E5533D"/><path d="M50 24 C46 12 34 12 34 12" stroke="#5B7A3A" stroke-width="6" fill="none" stroke-linecap="round"/><ellipse cx="66" cy="20" rx="12" ry="7" fill="#7DBE4C" transform="rotate(30 66 20)"/></svg>'),
+    svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M30 78 C20 60 30 30 55 20 C62 17 66 22 62 27 C46 34 40 55 48 70 C58 88 30 92 30 78 Z" fill="#F6C445"/></svg>'),
+    svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,10 61,38 91,38 67,56 76,86 50,68 24,86 33,56 9,38 39,38" fill="#FFD23F" stroke="#F2A400" stroke-width="3"/></svg>'),
+    svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><ellipse cx="50" cy="42" rx="30" ry="36" fill="#5B9BD5"/><path d="M50 78 L44 92 L56 92 Z" fill="#5B9BD5"/><line x1="50" y1="92" x2="50" y2="100" stroke="#8A8A8A" stroke-width="2"/><ellipse cx="40" cy="30" rx="6" ry="9" fill="#ffffff" opacity=".5"/></svg>'),
+    svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 50 C30 30 65 30 82 50 C65 70 30 70 10 50 Z" fill="#4FA8C9"/><polygon points="82,50 96,38 96,62" fill="#4FA8C9"/><circle cx="26" cy="46" r="3.5" fill="#fff"/></svg>'),
+    svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 18 C74 40 86 56 86 68 C86 84 70 92 50 92 C30 92 14 84 14 68 C14 56 26 40 50 18 Z" fill="#E5507A"/><circle cx="40" cy="55" r="3" fill="#FFE27A"/><circle cx="58" cy="62" r="3" fill="#FFE27A"/><circle cx="47" cy="72" r="3" fill="#FFE27A"/><path d="M50 18 C46 12 40 12 36 16" stroke="#5B7A3A" stroke-width="5" fill="none" stroke-linecap="round"/></svg>')
+  ];
+
+  var state = {
+    images: DEFAULT_IMAGES.slice(),
+    running: false,
+    score: 0,
+    timeLeft: 30,
+    timerId: null,
+    spawnTimeoutId: null,
+    holes: [],
+    uploadedUrls: []
+  };
+
+  var DIFFICULTY = {
+    easy:   { intervalMin: 2600, intervalMax: 4200, showTime: 4200, maxOnScreen: 1 },
+    normal: { intervalMin: 1400, intervalMax: 2200, showTime: 2200, maxOnScreen: 2 },
+    hard:   { intervalMin: 700,  intervalMax: 1200, showTime: 1200, maxOnScreen: 2 }
+  };
+
+  var holesEl = document.getElementById("holes");
+  var scoreVal = document.getElementById("scoreVal");
+  var timeVal = document.getElementById("timeVal");
+  var startBtn = document.getElementById("startBtn");
+  var settingsBtn = document.getElementById("settingsBtn");
+  var settingsPanel = document.getElementById("settingsPanel");
+  var difficultySelect = document.getElementById("difficultySelect");
+  var durationSelect = document.getElementById("durationSelect");
+  var holeCountSelect = document.getElementById("holeCountSelect");
+  var resultScreen = document.getElementById("resultScreen");
+  var finalScore = document.getElementById("finalScore");
+  var retryBtn = document.getElementById("retryBtn");
+  var thumbsEl = document.getElementById("thumbs");
+  var fileInput = document.getElementById("fileInput");
+  var resetImagesBtn = document.getElementById("resetImagesBtn");
+
+  var openCameraBtn = document.getElementById("openCameraBtn");
+  var cameraModal = document.getElementById("cameraModal");
+  var cameraVideo = document.getElementById("cameraVideo");
+  var cameraPreview = document.getElementById("cameraPreview");
+  var cameraCanvas = document.getElementById("cameraCanvas");
+  var cameraError = document.getElementById("cameraError");
+  var cameraLiveControls = document.getElementById("cameraLiveControls");
+  var cameraReviewControls = document.getElementById("cameraReviewControls");
+  var cameraSwitchBtn = document.getElementById("cameraSwitchBtn");
+  var cameraShutterBtn = document.getElementById("cameraShutterBtn");
+  var cameraCloseBtn = document.getElementById("cameraCloseBtn");
+  var cameraRetakeBtn = document.getElementById("cameraRetakeBtn");
+  var cameraUseBtn = document.getElementById("cameraUseBtn");
+
+  function buildHoles(){
+    var count = parseInt(holeCountSelect.value, 10) || 6;
+    var cols = Math.ceil(count / 2);
+    holesEl.style.gridTemplateColumns = "repeat(" + cols + ", 1fr)";
+    holesEl.innerHTML = "";
+    state.holes = [];
+
+    for (var i = 0; i < count; i++){
+      var slot = document.createElement("div");
+      slot.className = "hole-slot " + (i < cols ? "back-row" : "front-row");
+
+      var mound = document.createElement("button");
+      mound.className = "mound";
+      mound.type = "button";
+      mound.setAttribute("aria-label", "あな " + (i + 1));
+
+      var body = document.createElement("div");
+      body.className = "mound-body";
+      mound.appendChild(body);
+
+      var win = document.createElement("div");
+      win.className = "hole-window";
+
+      var dark = document.createElement("div");
+      dark.className = "hole-dark";
+      win.appendChild(dark);
+
+      var img = document.createElement("img");
+      img.className = "target";
+      img.alt = "";
+      win.appendChild(img);
+
+      mound.appendChild(win);
+
+      var plus1 = document.createElement("div");
+      plus1.className = "plus1";
+      plus1.textContent = "+1";
+      mound.appendChild(plus1);
+
+      slot.appendChild(mound);
+      holesEl.appendChild(slot);
+
+      var holeObj = { el: mound, img: img, plus1: plus1, active: false, hideTimer: null };
+      mound.onclick = function(h){ return function(){ hit(h); }; }(holeObj);
+      state.holes.push(holeObj);
+    }
+  }
+
+  function renderThumbs(){
+    thumbsEl.innerHTML = "";
+    state.images.forEach(function(src){
+      var t = document.createElement("div");
+      t.className = "thumb";
+      var img = document.createElement("img");
+      img.src = src;
+      img.alt = "";
+      t.appendChild(img);
+      if (state.uploadedUrls.indexOf(src) !== -1){
+        var rm = document.createElement("button");
+        rm.className = "rm";
+        rm.type = "button";
+        rm.textContent = "×";
+        rm.setAttribute("aria-label", "この画像を削除");
+        rm.onclick = function(){ removeImage(src); };
+        t.appendChild(rm);
+      }
+      thumbsEl.appendChild(t);
+    });
+  }
+
+  function removeImage(src){
+    var idx = state.images.indexOf(src);
+    if (idx !== -1) state.images.splice(idx, 1);
+    var uIdx = state.uploadedUrls.indexOf(src);
+    if (uIdx !== -1){
+      URL.revokeObjectURL(src);
+      state.uploadedUrls.splice(uIdx, 1);
+    }
+    if (state.images.length === 0) resetToDefaultImages();
+    renderThumbs();
+  }
+
+  function resetToDefaultImages(){
+    state.uploadedUrls.forEach(function(u){ URL.revokeObjectURL(u); });
+    state.uploadedUrls = [];
+    state.images = DEFAULT_IMAGES.slice();
+    renderThumbs();
+  }
+
+  function addImageToPool(url){
+    var wasDefaultOnly = state.uploadedUrls.length === 0;
+    if (wasDefaultOnly) state.images = [];
+    state.uploadedUrls.push(url);
+    state.images.push(url);
+    renderThumbs();
+  }
+
+  fileInput.addEventListener("change", function(e){
+    var files = Array.prototype.slice.call(e.target.files || []);
+    if (files.length === 0) return;
+    files.forEach(function(f){
+      addImageToPool(URL.createObjectURL(f));
+    });
+    fileInput.value = "";
+  });
+
+  resetImagesBtn.addEventListener("click", resetToDefaultImages);
+
+  settingsBtn.addEventListener("click", function(){
+    settingsPanel.classList.toggle("open");
+  });
+
+  holeCountSelect.addEventListener("change", function(){
+    if (state.running) stopGameSilently();
+    buildHoles();
+  });
+
+  /* ---------- camera capture ---------- */
+  var cameraStream = null;
+  var currentFacing = "environment";
+  var capturedBlob = null;
+
+  function openCamera(){
+    cameraError.style.display = "none";
+    capturedBlob = null;
+    cameraModal.classList.add("open");
+    showLiveControls();
+    startStream(currentFacing);
+  }
+
+  function startStream(facing){
+    stopStream();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      showCameraError("このブラウザではカメラを使えません。");
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false })
+      .then(function(stream){
+        cameraStream = stream;
+        cameraVideo.srcObject = stream;
+        cameraError.style.display = "none";
+      })
+      .catch(function(){
+        showCameraError("カメラを起動できませんでした。ブラウザのカメラ許可を確認してください。");
+      });
+  }
+
+  function showCameraError(msg){
+    cameraError.textContent = msg;
+    cameraError.style.display = "block";
+  }
+
+  function stopStream(){
+    if (cameraStream){
+      cameraStream.getTracks().forEach(function(t){ t.stop(); });
+      cameraStream = null;
+    }
+  }
+
+  function closeCamera(){
+    stopStream();
+    cameraModal.classList.remove("open");
+  }
+
+  function switchCamera(){
+    currentFacing = currentFacing === "environment" ? "user" : "environment";
+    startStream(currentFacing);
+  }
+
+  function showLiveControls(){
+    cameraVideo.style.display = "block";
+    cameraPreview.style.display = "none";
+    cameraLiveControls.style.display = "flex";
+    cameraReviewControls.style.display = "none";
+  }
+
+  function showReviewControls(){
+    cameraVideo.style.display = "none";
+    cameraPreview.style.display = "block";
+    cameraLiveControls.style.display = "none";
+    cameraReviewControls.style.display = "flex";
+  }
+
+  function capturePhoto(){
+    var w = cameraVideo.videoWidth;
+    var h = cameraVideo.videoHeight;
+    if (!w || !h) return;
+    cameraCanvas.width = w;
+    cameraCanvas.height = h;
+    var ctx = cameraCanvas.getContext("2d");
+    ctx.drawImage(cameraVideo, 0, 0, w, h);
+    cameraCanvas.toBlob(function(blob){
+      if (!blob) return;
+      capturedBlob = blob;
+      cameraPreview.src = URL.createObjectURL(blob);
+      showReviewControls();
+    }, "image/jpeg", 0.92);
+  }
+
+  function retakePhoto(){
+    capturedBlob = null;
+    showLiveControls();
+  }
+
+  function useCapturedPhoto(){
+    if (!capturedBlob) return;
+    addImageToPool(URL.createObjectURL(capturedBlob));
+    closeCamera();
+  }
+
+  openCameraBtn.addEventListener("click", openCamera);
+  cameraCloseBtn.addEventListener("click", closeCamera);
+  cameraSwitchBtn.addEventListener("click", switchCamera);
+  cameraShutterBtn.addEventListener("click", capturePhoto);
+  cameraRetakeBtn.addEventListener("click", retakePhoto);
+  cameraUseBtn.addEventListener("click", useCapturedPhoto);
+
+  function randomImage(){
+    return state.images[Math.floor(Math.random() * state.images.length)];
+  }
+
+  function activeCount(){
+    return state.holes.filter(function(h){ return h.active; }).length;
+  }
+
+  function pickIdleHole(){
+    var idle = state.holes.filter(function(h){ return !h.active; });
+    if (idle.length === 0) return null;
+    return idle[Math.floor(Math.random() * idle.length)];
+  }
+
+  function showTarget(h, cfg){
+    h.active = true;
+    h.img.src = randomImage();
+    h.el.classList.remove("hit");
+    h.el.classList.add("up");
+    h.hideTimer = setTimeout(function(){ hideTarget(h); }, cfg.showTime);
+  }
+
+  function hideTarget(h){
+    h.active = false;
+    h.el.classList.remove("up");
+    if (h.hideTimer){ clearTimeout(h.hideTimer); h.hideTimer = null; }
+  }
+
+  function hit(h){
+    if (!state.running || !h.active) return;
+    state.score += 1;
+    scoreVal.textContent = state.score;
+    h.el.classList.add("hit");
+    h.plus1.classList.remove("show");
+    void h.plus1.offsetWidth;
+    h.plus1.classList.add("show");
+    setTimeout(function(){ h.el.classList.remove("hit"); }, 300);
+    hideTarget(h);
+  }
+
+  function spawnLoop(){
+    if (!state.running) return;
+    var cfg = DIFFICULTY[difficultySelect.value];
+    if (activeCount() < cfg.maxOnScreen){
+      var h = pickIdleHole();
+      if (h) showTarget(h, cfg);
+    }
+    var delay = cfg.intervalMin + Math.random() * (cfg.intervalMax - cfg.intervalMin);
+    state.spawnTimeoutId = setTimeout(spawnLoop, delay);
+  }
+
+  function tick(){
+    state.timeLeft -= 1;
+    timeVal.textContent = Math.max(state.timeLeft, 0);
+    if (state.timeLeft <= 0) endGame();
+  }
+
+  function setControlsRunning(running){
+    startBtn.disabled = running;
+    startBtn.textContent = running ? "あそんでね" : "スタート";
+    holeCountSelect.disabled = running;
+  }
+
+  function startGame(){
+    state.running = true;
+    state.score = 0;
+    state.timeLeft = parseInt(durationSelect.value, 10);
+    scoreVal.textContent = "0";
+    timeVal.textContent = state.timeLeft;
+    resultScreen.classList.remove("show");
+    settingsPanel.classList.remove("open");
+    setControlsRunning(true);
+    state.holes.forEach(hideTarget);
+    state.timerId = setInterval(tick, 1000);
+    spawnLoop();
+  }
+
+  function endGame(){
+    state.running = false;
+    clearInterval(state.timerId);
+    clearTimeout(state.spawnTimeoutId);
+    state.holes.forEach(hideTarget);
+    finalScore.textContent = state.score;
+    resultScreen.classList.add("show");
+    setControlsRunning(false);
+  }
+
+  function stopGameSilently(){
+    state.running = false;
+    clearInterval(state.timerId);
+    clearTimeout(state.spawnTimeoutId);
+    state.holes.forEach(hideTarget);
+    resultScreen.classList.remove("show");
+    scoreVal.textContent = "0";
+    timeVal.textContent = durationSelect.value;
+    setControlsRunning(false);
+  }
+
+  startBtn.addEventListener("click", startGame);
+  retryBtn.addEventListener("click", startGame);
+
+  buildHoles();
+  renderThumbs();
+})();
+</script>
+
+</body>
+</html>
