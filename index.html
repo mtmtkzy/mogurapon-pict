@@ -93,14 +93,14 @@
     display:grid;
     align-items:end;
     justify-items:center;
-    padding:16% 6% 8%;
-    row-gap:10%;
+    padding:8% 3% 4%;
+    row-gap:6%;
     column-gap:2%;
   }
   .hole-slot{
     position:relative;
     width:100%;
-    max-width:150px;
+    max-width:320px;
     display:flex;
     align-items:flex-end;
     justify-content:center;
@@ -111,7 +111,7 @@
   .mound{
     position:relative;
     width:100%;
-    aspect-ratio:1.3/1;
+    aspect-ratio:1.05/1;
     background:none;
     border:none;
     padding:0;
@@ -131,10 +131,10 @@
   }
   .hole-window{
     position:absolute;
-    left:20%;
-    right:20%;
-    bottom:26%;
-    height:100%;
+    left:6%;
+    right:6%;
+    bottom:24%;
+    height:105%;
     overflow:hidden;
     z-index:2;
   }
@@ -152,7 +152,7 @@
     position:absolute;
     left:50%;
     bottom:6%;
-    width:96%;
+    width:100%;
     height:auto;
     transform:translate(-50%,140%);
     transition:transform .24s cubic-bezier(.34,1.56,.64,1);
@@ -193,12 +193,26 @@
   .controls{
     display:flex;
     justify-content:center;
-    align-items:center;
-    gap:14px;
+    align-items:flex-start;
+    gap:24px;
     padding:16px;
     flex-wrap:wrap;
   }
   button{ font-family:inherit; }
+  .guarded-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+  }
+  .guarded-hint{
+    margin:0;
+    font-size:11px;
+    color:var(--ink-soft);
+    opacity:.55;
+    text-align:center;
+    max-width:120px;
+  }
   .btn-main{
     background:linear-gradient(180deg,var(--sun) 0%,var(--sun-deep) 100%);
     border:none;
@@ -210,7 +224,7 @@
     box-shadow:0 4px 0 #C98600;
     cursor:pointer;
   }
-  .btn-main:disabled{ opacity:.6; cursor:default; }
+  .btn-main:disabled{ opacity:.25; cursor:default; }
   .btn-main:active:not(:disabled){ transform:translateY(2px); box-shadow:0 2px 0 #C98600; }
   .btn-ghost{
     background:var(--panel);
@@ -223,6 +237,43 @@
     cursor:pointer;
   }
   button:focus-visible{ outline:3px solid #2E7DD1; outline-offset:2px; }
+
+  /* ---------- guarded (long-press) buttons ---------- */
+  .btn-guarded{
+    position:relative;
+    overflow:hidden;
+    opacity:.38;
+    filter:grayscale(55%);
+    transition:opacity .25s ease, filter .25s ease;
+    -webkit-user-select:none;
+    user-select:none;
+    -webkit-touch-callout:none;
+    touch-action:manipulation;
+  }
+  .btn-guarded .hold-fill{
+    position:absolute;
+    inset:0;
+    background:rgba(255,255,255,.62);
+    transform:scaleX(0);
+    transform-origin:left;
+    transition:transform 3s linear;
+    pointer-events:none;
+  }
+  .btn-guarded .btn-label{
+    position:relative;
+    z-index:1;
+  }
+  .btn-guarded.charging{
+    opacity:.95;
+    filter:grayscale(0%);
+  }
+  .btn-guarded.charging .hold-fill{
+    transform:scaleX(1);
+  }
+  .btn-guarded:disabled{
+    opacity:.22 !important;
+    filter:grayscale(70%) !important;
+  }
 
   .settings{
     margin:0 12px 16px;
@@ -413,8 +464,20 @@
 </div>
 
 <div class="controls">
-  <button class="btn-main" id="startBtn">スタート</button>
-  <button class="btn-ghost" id="settingsBtn">せってい</button>
+  <div class="guarded-wrap">
+    <button class="btn-main btn-guarded" id="startBtn" type="button">
+      <span class="hold-fill"></span>
+      <span class="btn-label">スタート</span>
+    </button>
+    <p class="guarded-hint">3びょう おしたままにしてね</p>
+  </div>
+  <div class="guarded-wrap">
+    <button class="btn-ghost btn-guarded" id="settingsBtn" type="button">
+      <span class="hold-fill"></span>
+      <span class="btn-label">せってい</span>
+    </button>
+    <p class="guarded-hint">3びょう おしたままにしてね</p>
+  </div>
 </div>
 
 <div class="settings" id="settingsPanel">
@@ -438,6 +501,8 @@
   <div class="row">
     <span class="row-label">あなの数</span>
     <select id="holeCountSelect">
+      <option value="2">2こ</option>
+      <option value="3">3こ</option>
       <option value="4">4こ</option>
       <option value="6" selected>6こ</option>
       <option value="8">8こ</option>
@@ -517,6 +582,7 @@
   var scoreVal = document.getElementById("scoreVal");
   var timeVal = document.getElementById("timeVal");
   var startBtn = document.getElementById("startBtn");
+  var startBtnLabel = startBtn.querySelector(".btn-label");
   var settingsBtn = document.getElementById("settingsBtn");
   var settingsPanel = document.getElementById("settingsPanel");
   var difficultySelect = document.getElementById("difficultySelect");
@@ -545,14 +611,15 @@
 
   function buildHoles(){
     var count = parseInt(holeCountSelect.value, 10) || 6;
-    var cols = Math.ceil(count / 2);
+    var cols = count <= 3 ? count : Math.ceil(count / 2);
     holesEl.style.gridTemplateColumns = "repeat(" + cols + ", 1fr)";
     holesEl.innerHTML = "";
     state.holes = [];
 
+    var singleRow = count <= 3;
     for (var i = 0; i < count; i++){
       var slot = document.createElement("div");
-      slot.className = "hole-slot " + (i < cols ? "back-row" : "front-row");
+      slot.className = "hole-slot " + (singleRow ? "" : (i < cols ? "back-row" : "front-row"));
 
       var mound = document.createElement("button");
       mound.className = "mound";
@@ -651,7 +718,54 @@
 
   resetImagesBtn.addEventListener("click", resetToDefaultImages);
 
-  settingsBtn.addEventListener("click", function(){
+  /* ---------- long-press guard for start / settings ---------- */
+  function setupLongPress(btn, holdMs, onComplete){
+    var fill = btn.querySelector(".hold-fill");
+    var pressing = false;
+    var timer = null;
+
+    function begin(e){
+      if (btn.disabled) return;
+      if (e.cancelable) e.preventDefault();
+      if (pressing) return;
+      pressing = true;
+      // ensure fill starts from 0 before animating to full
+      fill.style.transition = "none";
+      fill.style.transform = "scaleX(0)";
+      void fill.offsetWidth;
+      fill.style.transition = "";
+      btn.classList.add("charging");
+      timer = setTimeout(function(){
+        if (!pressing) return;
+        pressing = false;
+        btn.classList.remove("charging");
+        fill.style.transition = "none";
+        fill.style.transform = "scaleX(0)";
+        void fill.offsetWidth;
+        fill.style.transition = "";
+        onComplete();
+      }, holdMs);
+    }
+
+    function cancel(){
+      if (!pressing) return;
+      pressing = false;
+      clearTimeout(timer);
+      btn.classList.remove("charging");
+      fill.style.transition = "none";
+      fill.style.transform = "scaleX(0)";
+      void fill.offsetWidth;
+      fill.style.transition = "";
+    }
+
+    btn.addEventListener("pointerdown", begin);
+    btn.addEventListener("pointerup", cancel);
+    btn.addEventListener("pointerleave", cancel);
+    btn.addEventListener("pointercancel", cancel);
+    btn.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+  }
+
+  setupLongPress(settingsBtn, 3000, function(){
     settingsPanel.classList.toggle("open");
   });
 
@@ -819,7 +933,7 @@
 
   function setControlsRunning(running){
     startBtn.disabled = running;
-    startBtn.textContent = running ? "あそんでね" : "スタート";
+    startBtnLabel.textContent = running ? "あそんでね" : "スタート";
     holeCountSelect.disabled = running;
   }
 
@@ -858,7 +972,7 @@
     setControlsRunning(false);
   }
 
-  startBtn.addEventListener("click", startGame);
+  setupLongPress(startBtn, 3000, startGame);
   retryBtn.addEventListener("click", startGame);
 
   buildHoles();
